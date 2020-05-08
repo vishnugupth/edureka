@@ -1,0 +1,71 @@
+---
+- hosts: test
+  become_user: root
+  tasks:
+  - name: install git
+    apt: name=git state=present
+  - name : install chromium browser
+    apt: name=chromium-browser
+
+  - name: Check if xvfb is installed
+    command: dpkg -s xvfb
+    register: xvfb_check_deb
+    tags:
+    - xvfb
+
+  - name: Install xvfb package
+    apt: name=xvfb state=present
+    sudo: true
+    when: xvfb_check_deb.rc < 1
+    tags:
+     - xvfb
+
+  - name: Install xvfb init.d daemon script
+    action: template src=xvfb-init.d-template dest=/etc/init.d/xvfb mode=0755
+    tags:
+     - xvfb
+
+  - name: Set xvfb to run on startup
+    shell: update-rc.d xvfb defaults
+    sudo: true
+    when: xvfb_check_deb.rc <  1
+    tags:
+     - xvfb
+
+#  - name: Start xvfb service
+ #   action: service name=xvfb state=started
+  #  tags:
+   #  - xvfb
+
+ 
+  - name: Check if google-chrome-stable is installed
+    command: dpkg -s google-chrome-stable
+    register: google_chrome_check_deb
+    failed_when: google_chrome_check_deb.rc > 1
+    changed_when: google_chrome_check_deb == 1
+    tags:
+    - chrome
+
+  - name: Download google-chrome-stable
+    get_url:
+          url="https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"
+          dest="/home/chrome"
+    when: google_chrome_check_deb.rc == 1
+    tags:
+     - chrome
+
+  - name: Install google-chrome-stable
+    apt: deb="/home/chrome"
+    sudo: true
+    when: google_chrome_check_deb.rc == 1
+    tags:
+     - chrome
+
+  - name: Fix any missing google-chrome-stable dependencies
+    apt: name=chrome
+    sudo: true
+    when: google_chrome_check_deb.rc == 1
+    tags:
+     - chrome
+
+
